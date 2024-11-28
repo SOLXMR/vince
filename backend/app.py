@@ -47,7 +47,7 @@ CORS(app,
          r"/*": {
              "origins": [
                  "http://localhost:3000",
-                 "https://vincefrontend-3k5s1p2c0-nubs-projects-444ae335.vercel.app"
+                 "https://vincefrontend-o752775og-nubs-projects-444ae335.vercel.app"
              ],
              "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
              "allow_headers": ["Content-Type", "Authorization"],
@@ -62,7 +62,7 @@ def after_request(response):
     origin = request.headers.get('Origin')
     if origin in [
         'http://localhost:3000',
-        'https://vincefrontend-3k5s1p2c0-nubs-projects-444ae335.vercel.app'
+        'https://vincefrontend-o752775og-nubs-projects-444ae335.vercel.app'
     ]:
         response.headers.add('Access-Control-Allow-Origin', origin)
         response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
