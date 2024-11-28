@@ -100,6 +100,7 @@ def catch_all(path):
                 'songs': {
                     'list': '/api/songs',
                     'upload': '/api/songs/upload',
+                    'upload_spotify': '/api/songs/upload/spotify',
                     'stream': '/api/songs/stream/<song_id>',
                     'download': '/api/songs/download/<song_id>'
                 },
@@ -117,6 +118,7 @@ def catch_all(path):
             '/api/auth/profile',
             '/api/songs',
             '/api/songs/upload',
+            '/api/songs/upload/spotify',
             '/api/songs/stream/<song_id>',
             '/api/songs/download/<song_id>',
             '/health'
