@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, current_app, send_from_directory, redirect
+from flask import Flask, jsonify, request, current_app, send_from_directory
 from flask_cors import CORS
 from dotenv import load_dotenv
 import logging
@@ -72,7 +72,7 @@ def after_request(response):
 
 # Configure app
 app.config['SECRET_KEY'] = get_secret_key()
-app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'uploads')
+app.config['UPLOAD_FOLDER'] = '/tmp/uploads'  # Use /tmp for Vercel
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # Register blueprints
@@ -134,7 +134,8 @@ def health_check():
             'status': 'healthy',
             'database': 'connected',
             'secret_key_source': 'env' if os.getenv('SECRET_KEY') else 'file',
-            'environment': os.getenv('FLASK_ENV', 'production')
+            'environment': os.getenv('FLASK_ENV', 'production'),
+            'upload_folder': app.config['UPLOAD_FOLDER']
         })
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")
@@ -142,6 +143,9 @@ def health_check():
             'status': 'unhealthy',
             'error': str(e)
         }), 500
+
+# This is required for Vercel
+app = app
 
 if __name__ == '__main__':
     app.run(debug=True) 
