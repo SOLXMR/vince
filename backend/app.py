@@ -82,29 +82,46 @@ from routes.auth import auth
 app.register_blueprint(songs)
 app.register_blueprint(auth)
 
-@app.route('/')
-def index():
-    """Root endpoint that provides API information"""
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def catch_all(path):
+    """Root endpoint that provides API information or handles 404s"""
+    if path == '':
+        return jsonify({
+            'name': 'Music Platform API',
+            'version': '1.0',
+            'description': 'Backend API for the Music Platform application',
+            'endpoints': {
+                'auth': {
+                    'register': '/api/auth/register',
+                    'login': '/api/auth/login',
+                    'profile': '/api/auth/profile'
+                },
+                'songs': {
+                    'list': '/api/songs',
+                    'upload': '/api/songs/upload',
+                    'stream': '/api/songs/stream/<song_id>',
+                    'download': '/api/songs/download/<song_id>'
+                },
+                'health': '/health'
+            },
+            'status': 'running',
+            'environment': os.getenv('FLASK_ENV', 'production')
+        })
     return jsonify({
-        'name': 'Music Platform API',
-        'version': '1.0',
-        'description': 'Backend API for the Music Platform application',
-        'endpoints': {
-            'auth': {
-                'register': '/api/auth/register',
-                'login': '/api/auth/login',
-                'profile': '/api/auth/profile'
-            },
-            'songs': {
-                'list': '/api/songs',
-                'upload': '/api/songs/upload',
-                'stream': '/api/songs/stream/<song_id>',
-                'download': '/api/songs/download/<song_id>'
-            },
-            'health': '/health'
-        },
-        'status': 'running'
-    })
+        'error': 'Not Found',
+        'message': f'The requested URL /{path} was not found on the server.',
+        'available_endpoints': [
+            '/api/auth/register',
+            '/api/auth/login',
+            '/api/auth/profile',
+            '/api/songs',
+            '/api/songs/upload',
+            '/api/songs/stream/<song_id>',
+            '/api/songs/download/<song_id>',
+            '/health'
+        ]
+    }), 404
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -114,7 +131,8 @@ def health_check():
         return jsonify({
             'status': 'healthy',
             'database': 'connected',
-            'secret_key_source': 'env' if os.getenv('SECRET_KEY') else 'file'
+            'secret_key_source': 'env' if os.getenv('SECRET_KEY') else 'file',
+            'environment': os.getenv('FLASK_ENV', 'production')
         })
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")
