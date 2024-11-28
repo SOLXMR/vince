@@ -15,6 +15,12 @@ axios.defaults.baseURL = 'https://backendvince.vercel.app';
 axios.defaults.withCredentials = true;  // Important for CORS with credentials
 axios.defaults.headers.common['Content-Type'] = 'application/json';
 
+// Set the token if it exists in localStorage
+const token = localStorage.getItem('token');
+if (token) {
+  axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+}
+
 const theme = createTheme({
   palette: {
     mode: 'dark',
