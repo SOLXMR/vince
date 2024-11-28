@@ -16,10 +16,14 @@ logger = logging.getLogger(__name__)
 # Load environment variables
 load_dotenv()
 
-# Create a file to store the secret key
-SECRET_KEY_FILE = os.path.join(os.path.dirname(__file__), 'secret_key')
-
-def get_or_create_secret_key():
+def get_secret_key():
+    # First try to get from environment variable
+    secret_key = os.getenv('SECRET_KEY')
+    if secret_key:
+        return secret_key
+        
+    # For local development, use file-based storage
+    SECRET_KEY_FILE = os.path.join(os.path.dirname(__file__), 'secret_key')
     try:
         if os.path.exists(SECRET_KEY_FILE):
             with open(SECRET_KEY_FILE, 'r') as f:
@@ -67,7 +71,7 @@ def after_request(response):
     return response
 
 # Configure app
-app.config['SECRET_KEY'] = get_or_create_secret_key()
+app.config['SECRET_KEY'] = get_secret_key()
 app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'uploads')
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
@@ -85,7 +89,8 @@ def health_check():
         db.users.find_one()
         return jsonify({
             'status': 'healthy',
-            'database': 'connected'
+            'database': 'connected',
+            'secret_key_source': 'env' if os.getenv('SECRET_KEY') else 'file'
         })
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")
