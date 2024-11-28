@@ -16,6 +16,7 @@ def token_required(f):
         token = None
         auth_header = request.headers.get('Authorization')
         
+        logger.debug(f"All headers received: {dict(request.headers)}")
         logger.debug(f"Auth header received: {auth_header}")
         
         if auth_header:
