@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, current_app, send_from_directory
+from flask import Flask, jsonify, request, current_app, send_from_directory, redirect
 from flask_cors import CORS
 from dotenv import load_dotenv
 import logging
@@ -81,6 +81,30 @@ from routes.auth import auth
 
 app.register_blueprint(songs)
 app.register_blueprint(auth)
+
+@app.route('/')
+def index():
+    """Root endpoint that provides API information"""
+    return jsonify({
+        'name': 'Music Platform API',
+        'version': '1.0',
+        'description': 'Backend API for the Music Platform application',
+        'endpoints': {
+            'auth': {
+                'register': '/api/auth/register',
+                'login': '/api/auth/login',
+                'profile': '/api/auth/profile'
+            },
+            'songs': {
+                'list': '/api/songs',
+                'upload': '/api/songs/upload',
+                'stream': '/api/songs/stream/<song_id>',
+                'download': '/api/songs/download/<song_id>'
+            },
+            'health': '/health'
+        },
+        'status': 'running'
+    })
 
 @app.route('/health', methods=['GET'])
 def health_check():
