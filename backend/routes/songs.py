@@ -83,10 +83,10 @@ def upload_song(current_user):
 def upload_spotify(current_user):
     try:
         data = request.get_json()
-        if not data or 'spotify_url' not in data:
+        if not data or 'url' not in data:
             return jsonify({'message': 'No Spotify URL provided'}), 400
 
-        spotify_url = data['spotify_url']
+        spotify_url = data['url']
         logger.debug(f"Uploading Spotify track: {spotify_url} for user: {current_user.username}")
         
         # Create uploads directory if it doesn't exist
