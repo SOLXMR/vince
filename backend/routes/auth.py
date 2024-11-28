@@ -123,13 +123,19 @@ def register():
         new_user._id = result.inserted_id
         logger.debug(f"Inserted new user with ID: {new_user._id}")
         
+        # Verify the user was inserted
+        inserted_user = db.users.find_one({'_id': new_user._id})
+        logger.debug(f"Verification - Found user in DB: {inserted_user}")
+        
         # Generate token
-        token = jwt.encode({
+        token_data = {
             'sub': str(new_user._id),
             'username': new_user.username,
             'exp': datetime.utcnow() + timedelta(days=1)
-        }, current_app.config['SECRET_KEY'])
-        logger.debug(f"Generated token for new user: {token[:20]}...")
+        }
+        logger.debug(f"Token data: {token_data}")
+        token = jwt.encode(token_data, current_app.config['SECRET_KEY'])
+        logger.debug(f"Generated token: {token[:20]}...")
         
         return jsonify({
             'token': token,
@@ -184,6 +190,17 @@ def login():
 def get_profile(current_user):
     try:
         logger.debug(f"Profile request for user: {current_user.username}")
+        logger.debug(f"User ID: {current_user._id}")
+        logger.debug(f"User object: {current_user.to_dict()}")
+        
+        # Double-check user exists in database
+        user_data = db.users.find_one({'_id': current_user._id})
+        logger.debug(f"User data from DB: {user_data}")
+        
+        if not user_data:
+            logger.error(f"User not found in database: {current_user._id}")
+            return jsonify({'message': 'User not found in database'}), 404
+            
         return jsonify({
             'user': {
                 '_id': str(current_user._id),
