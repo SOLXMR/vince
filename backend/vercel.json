@@ -4,6 +4,22 @@
         {
             "src": "app.py",
             "use": "@vercel/python"
+        },
+        {
+            "src": "routes/**/*.py",
+            "use": "@vercel/python"
+        },
+        {
+            "src": "utils/**/*.py",
+            "use": "@vercel/python"
+        },
+        {
+            "src": "models/**/*.py",
+            "use": "@vercel/python"
+        },
+        {
+            "src": "auth/**/*.py",
+            "use": "@vercel/python"
         }
     ],
     "routes": [
@@ -26,23 +42,6 @@
             }
         }
     ],
-    "functions": {
-        "api/**/*.py": {
-            "runtime": "python3.9"
-        },
-        "routes/**/*.py": {
-            "runtime": "python3.9"
-        },
-        "utils/**/*.py": {
-            "runtime": "python3.9"
-        },
-        "models/**/*.py": {
-            "runtime": "python3.9"
-        },
-        "auth/**/*.py": {
-            "runtime": "python3.9"
-        }
-    },
     "env": {
         "FLASK_APP": "app.py",
         "FLASK_ENV": "production",
