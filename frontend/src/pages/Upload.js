@@ -98,16 +98,32 @@ const Upload = () => {
       return;
     }
 
+    // Validate Spotify URL format
+    if (!spotifyUrl.startsWith('https://open.spotify.com/track/')) {
+      setError('Invalid Spotify URL format. Must be a Spotify track URL.');
+      return;
+    }
+
     setUploading(true);
     setError('');
 
     try {
+      console.log('Sending Spotify upload request:', { url: spotifyUrl });
       const response = await axios.post('/api/songs/upload/spotify', { url: spotifyUrl });
       console.log('Spotify upload response:', response.data);
       navigate('/');
     } catch (err) {
       console.error('Spotify upload error:', err);
-      setError(err.response?.data?.message || err.message || 'Failed to process Spotify URL');
+      if (err.response) {
+        console.error('Error response:', err.response.data);
+        setError(err.response.data.message || 'Failed to process Spotify URL');
+      } else if (err.request) {
+        console.error('Error request:', err.request);
+        setError('Network error - please check your connection');
+      } else {
+        console.error('Error message:', err.message);
+        setError(err.message || 'Failed to process Spotify URL');
+      }
     } finally {
       setUploading(false);
     }
