@@ -16,13 +16,18 @@ def token_required(f):
         token = None
         auth_header = request.headers.get('Authorization')
         
-        logger.debug(f"All headers received: {dict(request.headers)}")
-        logger.debug(f"Auth header received: {auth_header}")
+        # Log all request details
+        logger.debug("=== Token Verification Debug ===")
+        logger.debug(f"Request Method: {request.method}")
+        logger.debug(f"Request Path: {request.path}")
+        logger.debug(f"All Headers: {dict(request.headers)}")
+        logger.debug(f"Auth Header: {auth_header}")
+        logger.debug(f"Secret Key (first 10 chars): {current_app.config['SECRET_KEY'][:10]}")
         
         if auth_header:
             try:
                 token = auth_header.split(" ")[1]
-                logger.debug(f"Token extracted: {token}")
+                logger.debug(f"Token extracted: {token[:20]}...")
             except IndexError:
                 logger.error("Malformed Authorization header")
                 return jsonify({'message': 'Invalid token format'}), 401
@@ -32,15 +37,18 @@ def token_required(f):
             return jsonify({'message': 'Token is missing'}), 401
 
         try:
-            logger.debug(f"Attempting to decode token with secret key: {current_app.config['SECRET_KEY'][:10]}...")
+            # Log the token decoding attempt
+            logger.debug(f"Attempting to decode token...")
             data = jwt.decode(token, current_app.config['SECRET_KEY'], algorithms=["HS256"])
             logger.debug(f"Token decoded successfully. Data: {data}")
             
             user_id = data['sub']
             logger.debug(f"Looking for user with ID: {user_id}")
             
+            # Log MongoDB query
+            logger.debug(f"Executing MongoDB query for user ID: {user_id}")
             user_data = db.users.find_one({'_id': ObjectId(user_id)})
-            logger.debug(f"Database query result: {user_data}")
+            logger.debug(f"MongoDB query result: {user_data}")
             
             if not user_data:
                 logger.error(f"No user found for ID: {user_id}")
@@ -56,7 +64,7 @@ def token_required(f):
             return jsonify({'message': 'Token has expired'}), 401
         except jwt.InvalidTokenError as e:
             logger.error(f"Invalid token: {str(e)}")
-            return jsonify({'message': 'Invalid token'}), 401
+            return jsonify({'message': 'Invalid token', 'error': str(e)}), 401
         except Exception as e:
             logger.error(f"Error processing token: {str(e)}")
             return jsonify({'message': 'Error processing token', 'error': str(e)}), 401
@@ -149,6 +157,7 @@ def login():
 @token_required
 def get_profile(current_user):
     try:
+        logger.debug(f"Profile request for user: {current_user.username}")
         return jsonify({
             'user': {
                 '_id': str(current_user._id),
