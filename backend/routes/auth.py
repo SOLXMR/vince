@@ -6,6 +6,7 @@ from models.models import User
 from database import db
 from functools import wraps
 from bson import ObjectId
+from bson.errors import InvalidId
 
 logger = logging.getLogger(__name__)
 auth = Blueprint('auth', __name__)
@@ -22,7 +23,6 @@ def token_required(f):
         logger.debug(f"Request Path: {request.path}")
         logger.debug(f"All Headers: {dict(request.headers)}")
         logger.debug(f"Auth Header: {auth_header}")
-        logger.debug(f"Secret Key (first 10 chars): {current_app.config['SECRET_KEY'][:10]}")
         
         if auth_header:
             try:
@@ -42,20 +42,36 @@ def token_required(f):
             data = jwt.decode(token, current_app.config['SECRET_KEY'], algorithms=["HS256"])
             logger.debug(f"Token decoded successfully. Data: {data}")
             
+            if 'sub' not in data:
+                logger.error("Token missing 'sub' claim")
+                return jsonify({'message': 'Invalid token format - missing user ID'}), 401
+                
             user_id = data['sub']
-            logger.debug(f"Looking for user with ID: {user_id}")
+            logger.debug(f"User ID from token: {user_id}")
+            
+            try:
+                # Convert string ID to ObjectId
+                object_id = ObjectId(user_id)
+                logger.debug(f"Successfully converted to ObjectId: {object_id}")
+            except InvalidId as e:
+                logger.error(f"Invalid ObjectId format: {user_id}")
+                return jsonify({'message': 'Invalid user ID format'}), 401
             
             # Log MongoDB query
-            logger.debug(f"Executing MongoDB query for user ID: {user_id}")
-            user_data = db.users.find_one({'_id': ObjectId(user_id)})
+            logger.debug(f"Executing MongoDB query for user ID: {object_id}")
+            user_data = db.users.find_one({'_id': object_id})
             logger.debug(f"MongoDB query result: {user_data}")
             
             if not user_data:
                 logger.error(f"No user found for ID: {user_id}")
-                return jsonify({'message': 'Invalid user'}), 401
+                return jsonify({'message': 'User not found'}), 401
             
-            current_user = User.from_db_object(user_data)
-            logger.debug(f"User authenticated: {current_user.username}")
+            try:
+                current_user = User.from_db_object(user_data)
+                logger.debug(f"User object created successfully: {current_user.username}")
+            except Exception as e:
+                logger.error(f"Error creating User object: {str(e)}")
+                return jsonify({'message': 'Error processing user data'}), 500
             
             return f(current_user, *args, **kwargs)
             
@@ -73,85 +89,95 @@ def token_required(f):
 
 @auth.route('/api/auth/register', methods=['POST'])
 def register():
-    data = request.get_json()
-    logger.debug(f"Register request received with data: {data}")
-    
-    if not data or not data.get('username') or not data.get('password') or not data.get('email'):
-        logger.error("Missing required fields in registration request")
-        return jsonify({'message': 'Missing required fields'}), 400
-    
-    # Check if user already exists
-    existing_user = db.users.find_one({'username': data['username']})
-    if existing_user:
-        logger.error(f"Username {data['username']} already exists")
-        return jsonify({'message': 'Username already exists'}), 400
-    
-    existing_email = db.users.find_one({'email': data['email']})
-    if existing_email:
-        logger.error(f"Email {data['email']} already exists")
-        return jsonify({'message': 'Email already exists'}), 400
-    
-    # Create new user
-    new_user = User(
-        username=data['username'],
-        email=data['email'],
-        password=data['password']
-    )
-    logger.debug(f"Created new user object for {data['username']}")
-    
-    # Insert into MongoDB
-    result = db.users.insert_one(new_user.to_dict())
-    new_user._id = result.inserted_id
-    logger.debug(f"Inserted new user with ID: {new_user._id}")
-    
-    # Generate token
-    token = jwt.encode({
-        'sub': str(new_user._id),
-        'username': new_user.username,
-        'exp': datetime.utcnow() + timedelta(days=1)
-    }, current_app.config['SECRET_KEY'])
-    logger.debug(f"Generated token for new user: {token[:20]}...")
-    
-    return jsonify({
-        'token': token,
-        'username': new_user.username,
-        'message': 'User created successfully'
-    }), 201
+    try:
+        data = request.get_json()
+        logger.debug(f"Register request received with data: {data}")
+        
+        if not data or not data.get('username') or not data.get('password') or not data.get('email'):
+            logger.error("Missing required fields in registration request")
+            return jsonify({'message': 'Missing required fields'}), 400
+        
+        # Check if user already exists
+        existing_user = db.users.find_one({'username': data['username']})
+        if existing_user:
+            logger.error(f"Username {data['username']} already exists")
+            return jsonify({'message': 'Username already exists'}), 400
+        
+        existing_email = db.users.find_one({'email': data['email']})
+        if existing_email:
+            logger.error(f"Email {data['email']} already exists")
+            return jsonify({'message': 'Email already exists'}), 400
+        
+        # Create new user
+        new_user = User(
+            username=data['username'],
+            email=data['email'],
+            password=data['password']
+        )
+        logger.debug(f"Created new user object for {data['username']}")
+        
+        # Insert into MongoDB
+        user_dict = new_user.to_dict()
+        logger.debug(f"User dict before insert: {user_dict}")
+        result = db.users.insert_one(user_dict)
+        new_user._id = result.inserted_id
+        logger.debug(f"Inserted new user with ID: {new_user._id}")
+        
+        # Generate token
+        token = jwt.encode({
+            'sub': str(new_user._id),
+            'username': new_user.username,
+            'exp': datetime.utcnow() + timedelta(days=1)
+        }, current_app.config['SECRET_KEY'])
+        logger.debug(f"Generated token for new user: {token[:20]}...")
+        
+        return jsonify({
+            'token': token,
+            'username': new_user.username,
+            'message': 'User created successfully'
+        }), 201
+    except Exception as e:
+        logger.error(f"Error in registration: {str(e)}")
+        return jsonify({'message': f'Registration failed: {str(e)}'}), 500
 
 @auth.route('/api/auth/login', methods=['POST'])
 def login():
-    data = request.get_json()
-    logger.debug(f"Login request received with username: {data.get('username')}")
-    
-    if not data or not data.get('username') or not data.get('password'):
-        logger.error("Missing username or password in login request")
-        return jsonify({'message': 'Missing username or password'}), 400
-    
-    # Find user in MongoDB
-    user_data = db.users.find_one({'username': data['username']})
-    if not user_data:
-        logger.error(f"No user found with username: {data['username']}")
-        return jsonify({'message': 'Invalid username or password'}), 401
-    
-    user = User.from_db_object(user_data)
-    logger.debug(f"Found user: {user.username}")
-    
-    if not user.check_password(data['password']):
-        logger.error(f"Invalid password for user: {user.username}")
-        return jsonify({'message': 'Invalid username or password'}), 401
-    
-    # Generate token
-    token = jwt.encode({
-        'sub': str(user._id),
-        'username': user.username,
-        'exp': datetime.utcnow() + timedelta(days=1)
-    }, current_app.config['SECRET_KEY'])
-    logger.debug(f"Generated token for user: {token[:20]}...")
-    
-    return jsonify({
-        'token': token,
-        'username': user.username
-    })
+    try:
+        data = request.get_json()
+        logger.debug(f"Login request received with username: {data.get('username')}")
+        
+        if not data or not data.get('username') or not data.get('password'):
+            logger.error("Missing username or password in login request")
+            return jsonify({'message': 'Missing username or password'}), 400
+        
+        # Find user in MongoDB
+        user_data = db.users.find_one({'username': data['username']})
+        if not user_data:
+            logger.error(f"No user found with username: {data['username']}")
+            return jsonify({'message': 'Invalid username or password'}), 401
+        
+        user = User.from_db_object(user_data)
+        logger.debug(f"Found user: {user.username}")
+        
+        if not user.check_password(data['password']):
+            logger.error(f"Invalid password for user: {user.username}")
+            return jsonify({'message': 'Invalid username or password'}), 401
+        
+        # Generate token
+        token = jwt.encode({
+            'sub': str(user._id),
+            'username': user.username,
+            'exp': datetime.utcnow() + timedelta(days=1)
+        }, current_app.config['SECRET_KEY'])
+        logger.debug(f"Generated token for user: {token[:20]}...")
+        
+        return jsonify({
+            'token': token,
+            'username': user.username
+        })
+    except Exception as e:
+        logger.error(f"Error in login: {str(e)}")
+        return jsonify({'message': f'Login failed: {str(e)}'}), 500
 
 @auth.route('/api/auth/profile', methods=['GET'])
 @token_required
