@@ -11,7 +11,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import axios from 'axios';
 
 // Set the base URL for all API requests
-axios.defaults.baseURL = 'https://backendvince.vercel.app';
+axios.defaults.baseURL = 'https://backendvince-d7gfto0j0-nubs-projects-444ae335.vercel.app';
 axios.defaults.withCredentials = true;  // Important for CORS with credentials
 axios.defaults.headers.common['Content-Type'] = 'application/json';
 
