@@ -41,7 +41,10 @@ app = Flask(__name__)
 CORS(app, 
      resources={
          r"/*": {
-             "origins": ["http://localhost:3000", "https://vincefrontend-hx9zlcrww-nubs-projects-444ae335.vercel.app"],
+             "origins": [
+                 "http://localhost:3000",
+                 "https://vincefrontend.vercel.app"
+             ],
              "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
              "allow_headers": ["Content-Type", "Authorization"],
              "expose_headers": ["Content-Type", "Authorization"],
@@ -52,10 +55,15 @@ CORS(app,
 # Handle OPTIONS requests
 @app.after_request
 def after_request(response):
-    response.headers.add('Access-Control-Allow-Origin', 'https://vincefrontend-hx9zlcrww-nubs-projects-444ae335.vercel.app')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-    response.headers.add('Access-Control-Allow-Credentials', 'true')
+    origin = request.headers.get('Origin')
+    if origin in [
+        'http://localhost:3000',
+        'https://vincefrontend.vercel.app'
+    ]:
+        response.headers.add('Access-Control-Allow-Origin', origin)
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        response.headers.add('Access-Control-Allow-Credentials', 'true')
     return response
 
 # Configure app
