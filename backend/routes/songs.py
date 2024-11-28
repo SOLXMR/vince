@@ -82,12 +82,23 @@ def upload_song(current_user):
 @token_required
 def upload_spotify(current_user):
     try:
+        # Log environment variables (without exposing secrets)
+        logger.debug("Checking environment variables...")
+        logger.debug(f"SPOTIFY_CLIENT_ID exists: {bool(os.getenv('SPOTIFY_CLIENT_ID'))}")
+        logger.debug(f"SPOTIFY_CLIENT_SECRET exists: {bool(os.getenv('SPOTIFY_CLIENT_SECRET'))}")
+        
         data = request.get_json()
+        logger.debug(f"Received request data: {data}")
+        
         if not data or 'url' not in data:
             return jsonify({'message': 'No Spotify URL provided'}), 400
 
         spotify_url = data['url']
-        logger.debug(f"Uploading Spotify track: {spotify_url} for user: {current_user.username}")
+        logger.debug(f"Processing Spotify URL: {spotify_url}")
+        
+        # Validate Spotify URL format
+        if not spotify_url.startswith('https://open.spotify.com/track/'):
+            return jsonify({'message': 'Invalid Spotify URL format. Must be a Spotify track URL.'}), 400
         
         # Create uploads directory if it doesn't exist
         uploads_dir = os.path.join(current_app.root_path, 'uploads')
@@ -96,12 +107,19 @@ def upload_spotify(current_user):
         
         # Check if Spotify credentials are available
         if not os.getenv('SPOTIFY_CLIENT_ID') or not os.getenv('SPOTIFY_CLIENT_SECRET'):
-            logger.error("Missing Spotify credentials")
+            logger.error("Missing Spotify credentials in environment")
             return jsonify({'message': 'Spotify credentials not configured'}), 500
         
         try:
+            # Initialize SpotifyDownloader
+            logger.debug("Initializing SpotifyDownloader...")
+            spotify_downloader = SpotifyDownloader(
+                client_id=os.getenv('SPOTIFY_CLIENT_ID'),
+                client_secret=os.getenv('SPOTIFY_CLIENT_SECRET')
+            )
+            
             # Download the track
-            logger.debug("Downloading track from Spotify...")
+            logger.debug("Starting track download...")
             track_info = spotify_downloader.download_track(spotify_url, uploads_dir)
             logger.debug(f"Track info received: {track_info}")
             
@@ -112,11 +130,7 @@ def upload_spotify(current_user):
                 return jsonify({'message': 'Failed to download track: File not found'}), 500
             
             logger.debug(f"File successfully downloaded to: {file_path}")
-        except Exception as e:
-            logger.error(f"Error during download: {str(e)}")
-            return jsonify({'message': f'Failed to download track: {str(e)}'}), 500
-
-        try:
+            
             # Create song record in MongoDB
             new_song = Song(
                 title=track_info['title'],
@@ -139,19 +153,20 @@ def upload_spotify(current_user):
             }), 201
 
         except Exception as e:
-            logger.error(f"Error saving to MongoDB: {str(e)}")
-            # If MongoDB save fails, clean up the downloaded file
+            logger.error(f"Error during Spotify download: {str(e)}")
+            # If there was an error, try to clean up any partially downloaded files
             try:
-                os.remove(file_path)
-                logger.debug(f"Cleaned up file after MongoDB error: {file_path}")
+                if 'file_path' in locals():
+                    os.remove(file_path)
+                    logger.debug(f"Cleaned up file after error: {file_path}")
             except Exception as cleanup_error:
                 logger.error(f"Failed to clean up file: {str(cleanup_error)}")
-            raise
+            return jsonify({'message': f'Failed to download track: {str(e)}'}), 500
 
     except Exception as e:
-        logger.error(f"Failed to upload song: {str(e)}")
+        logger.error(f"Failed to process Spotify upload: {str(e)}")
         return jsonify({
-            'message': f'Failed to upload song: {str(e)}'
+            'message': f'Failed to process Spotify upload: {str(e)}'
         }), 500
 
 @songs.route('/api/songs/list', methods=['GET'])
